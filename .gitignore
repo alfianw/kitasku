@@ -1,0 +1,18 @@
+# Dependencies & Build outputs
+node_modules/
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/tsconfig.tsbuildinfo
+frontend/dev-server.log
+
+# Local env & temp files
+.env
+frontend/.env.local
+backend/.env
+NONE
+backend/NONE
+backend/uploads/
+
+# Self-contained deploy copy (root repo already has all files for GitHub)
+deploy/

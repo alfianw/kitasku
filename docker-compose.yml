@@ -1,0 +1,94 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: kitasku-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-kitasku}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-kitasku_prod_password}
+      POSTGRES_DB: ${DB_NAME:-kitasku}
+    volumes:
+      - kitasku_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-kitasku} -d ${DB_NAME:-kitasku}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - kitasku_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kitasku-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_ENV: production
+      PORT: 8080
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-kitasku}
+      DB_PASSWORD: ${DB_PASSWORD:-kitasku_prod_password}
+      DB_NAME: ${DB_NAME:-kitasku}
+      DB_SSLMODE: disable
+      JWT_SECRET: ${JWT_SECRET:-change-this-to-a-strong-production-jwt-secret}
+      JWT_EXPIRES_HOURS: ${JWT_EXPIRES_HOURS:-24}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost,http://127.0.0.1}
+      UPLOAD_DIR: /app/uploads
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-10}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@kitasku.id}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    volumes:
+      - kitasku_uploads:/app/uploads
+    networks:
+      - kitasku_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+    container_name: kitasku-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    networks:
+      - kitasku_net
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: kitasku-nginx
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - backend
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - kitasku_net
+
+volumes:
+  kitasku_pgdata:
+  kitasku_uploads:
+
+networks:
+  kitasku_net:
+    driver: bridge

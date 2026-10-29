@@ -1,0 +1,9 @@
+.env
+.git
+.gitignore
+*.md
+bin
+tmp
+uploads
+server
+server.exe
